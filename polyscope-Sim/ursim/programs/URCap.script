@@ -1,0 +1,36 @@
+def unnamed():
+  set_standard_analog_input_domain(0, 1)
+  set_standard_analog_input_domain(1, 1)
+  set_tool_analog_input_domain(0, 1)
+  set_tool_analog_input_domain(1, 1)
+  set_analog_outputdomain(0, 0)
+  set_analog_outputdomain(1, 0)
+  set_input_actions_to_default()
+  set_safety_mode_transition_hardness(1)
+  set_gravity([0.0, 0.0, 9.82])
+  set_tcp(p[0.0,0.0,0.0,0.0,0.0,0.0])
+  set_payload(0.1)
+  step_count_e0806f10_7cfe_4a2d_800b_e6de4222dde4 = 0.0
+  thread Step_Counter_Thread_a95f3736_3a20_46fc_9bc1_b71f4eb004df():
+    while (True):
+      step_count_e0806f10_7cfe_4a2d_800b_e6de4222dde4 = step_count_e0806f10_7cfe_4a2d_800b_e6de4222dde4 + 1.0
+      sync()
+    end
+  end
+  run Step_Counter_Thread_a95f3736_3a20_46fc_9bc1_b71f4eb004df()
+  set_tool_voltage(0)
+  rtde_set_watchdog("speed_slider_mask", 10.0, "pause")
+  # begin: URCap Installation Node
+  #   Source: External Control, 1.0.5, FZI Research Center for Information Technology
+  #   Type: External Control
+  # end: URCap Installation Node
+  while (True):
+    $ 1 "Robot Program"
+    # begin: URCap Program Node
+    #   Source: External Control, 1.0.5, FZI Research Center for Information Technology
+    #   Type: External Control
+    $ 2 "Control by dockerUR3sim"
+popup("The connection to the remote PC at 172.18.0.3:50002 could not be established. Reason: Connection refused (Connection refused)","Receive program failed", False, True, blocking=True)
+sync()    # end: URCap Program Node
+  end
+end

@@ -1,0 +1,307 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1" charset="utf-8"><title></title><meta name="description" content="Finwe Converge Demo"><meta name="author" content="Tapani Jämsä"><style>/* @import url('https://fonts.googleapis.com/css2?family=Electrolize&display=swap'); */
+      /* @import url('https://fonts.googleapis.com/css2?family=Montserrat&display=swap'); */
+      /* @import url('https://fonts.googleapis.com/css2?family=Exo:wght@600&display=swap'); */
+      @import url('https://fonts.googleapis.com/css2?family=Exo:wght@500&display=swap');
+      /* @import url('https://fonts.googleapis.com/css2?family=Exo&display=swap'); */
+      /* @import url('https://fonts.googleapis.com/css2?family=Alata&display=swap'); */
+      html,
+      body {
+        overflow: hidden;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        background-color: #000000;
+      }
+
+      #splitContainer {
+        display: flex;
+        height: 100vh; /* Fill the height of the view */
+        /* background-color: #65537c; */
+      }
+
+      #renderCanvas {
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+      }
+
+      #canvasContainer {
+        /*flex: 1;*/ /* Fill the remaining space */
+        width: 50%;
+      }
+
+      #openVidu {
+        /*flex: 1;*/ /* Fill the remaining space */
+        width: 50%;
+        background-color: #FFFFFF;
+        overflow: auto; /* Add scroll bars if necessary */
+      }
+
+      #divider {
+        width: 10px;
+        background: #ccc;
+        cursor: col-resize;
+      }
+
+      #toggleLogButton {
+        position: absolute;
+        width: 100%;
+        right: 0;
+        z-index: 1000;
+        /* font-size: 1.5em;
+        padding: 10px; */
+        opacity: 0.5; /* Make the button 50% transparent */
+        background-color: #383838; /* Set the background color */
+        border: none; /* Remove the border */
+        color: white; /* Set the text color */
+        font-size: 1em;
+        cursor: pointer;
+      }
+
+      #fpsButtons {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+      }
+
+      #fpsButtonsText {
+        background-color: white;
+        color: black; /* or any color you want for the text */
+      }
+
+      #log-container { overflow: auto; height: 150px; width: 100%; position: absolute; background-color: #0000009c}
+
+      .log-warn { color: orange }
+      .log-error { color: red }
+      .log-info { color: skyblue }
+      .log-log { color: white }
+      .log-debug { color: silver }
+
+      .log-warn, .log-error { font-weight: bold; }</style><link rel="icon" href="favicon.ico"/><script defer="defer" src="js/babylonBundle.js"></script></head><body><div id="loadingScreen"></div><button id="toggleLogButton">CONSOLE</button><div id="log-container" style="display: none;"><pre id="log"></pre></div><div id="splitContainer"><div id="canvasContainer"><canvas id="renderCanvas" touch-action="none"></canvas></div><div id="divider"></div><div id="openVidu"></div></div><div id="fpsButtons"><p id="fpsButtonsText"></p></div></body><script>// Console log to html. Source: https://stackoverflow.com/a/50773729/19870317
+    // log-container disabled by default (too unstable atm for mobile devices)
+    if (getUrlParameter('log') === "1" ? true : false) {
+      // if (getUrlParameter('log') === "0" ? false : true) {
+      rewireLoggingToElement(
+        () => document.getElementById("log"),
+        () => document.getElementById("log-container"), true);
+      var toggleLogButton = document.getElementById('toggleLogButton');
+      var logContainer = document.getElementById('log-container');
+
+      // Set the initial top value of the toggleLogButton
+      toggleLogButton.style.top = logContainer.offsetHeight + 'px';
+
+      toggleLogButton.addEventListener('click', function () {
+        var isHidden = logContainer.style.display === 'none';
+
+        logContainer.style.display = isHidden ? 'block' : 'none';
+
+        // Adjust the top value of the toggleLogButton based on the logContainer's visibility
+        toggleLogButton.style.top = isHidden ? logContainer.offsetHeight + 'px' : '0';
+      });
+    } else {
+      document.getElementById("log-container").remove();
+      document.getElementById('toggleLogButton').remove();
+    }
+
+    /* 
+      OpenVidu is currently a ROS scene exclusive feature for now so we remove it from other scenes
+      - Setting createSidePanel true creates 'openVidu' side panel, which is required to render OpenVidu and HLS content. 
+      - Setting createSidePanel false in the ROS scene creates only robot cam and webcam because those features don't require the OpenVidu side panel.
+    */
+    const createSidePanel = getUrlParameter('scene') === 'rosScene' ? true : false;
+    if (createSidePanel) {
+
+      // OpenVidu is disabled by default
+      const openViduEnabled = getUrlParameter('openVidu') === "1" ? true : false;
+
+      if (openViduEnabled) {
+        fetch('openVidu.html')
+          .then(response => response.text())
+          .then(data => document.getElementById('openVidu').innerHTML = data);
+      }
+
+      // Divider
+      var divider = document.getElementById('divider');
+      var leftSide = document.getElementById('canvasContainer');
+      var rightSide = document.getElementById('openVidu');
+      var isResizing = false;
+
+      function handleStart(e) {
+        isResizing = true;
+        lastDownX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+        document.body.style.userSelect = 'none'; // disable text selection
+      }
+
+      divider.addEventListener('mousedown', handleStart);
+      divider.addEventListener('touchstart', handleStart);
+
+      function resize(e) {
+        if (!isResizing)
+          return;
+
+        const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+        const viewportWidth = document.documentElement.clientWidth;
+        const offsetRight = viewportWidth - clientX;
+        // console.log('offsetRight: ', offsetRight);
+        
+        const leftPercentage = ((viewportWidth - offsetRight) / viewportWidth) * 100;
+        const rightPercentage = (offsetRight / viewportWidth) * 100;
+
+        leftSide.style.width = leftPercentage + '%';
+        rightSide.style.width = rightPercentage + '%';
+        // console.log('leftPercentage: ', leftPercentage, 'rightPercentage: ', rightPercentage);
+
+        // Save the widths to localStorage
+        // localStorage.setItem('converge-leftSideWidth', leftSide.style.width);
+        // localStorage.setItem('converge-rightSideWidth', rightSide.style.width);
+
+        // send resize event to Babylon
+        window.dispatchEvent(new Event('resize'));
+      }
+
+      function resizeRightSideToDefault() {
+        const viewportWidth = document.documentElement.clientWidth;
+        rightSide.style.width = '5%';
+        leftSide.style.width = '95%';
+
+        // send resize event to Babylon
+        window.dispatchEvent(new Event('resize'));
+      }
+
+      window.addEventListener('mousemove', resize);
+      window.addEventListener('touchmove', resize);
+      // on fullscreen change. Triggers only when the babylon fullscreen button is pressed. The browser built in fullscreen button does not trigger this event.
+      // window.addEventListener('fullscreenchange', resizeRightSideToDefault);
+
+      window.addEventListener('load', function () {
+
+        resizeRightSideToDefault();
+
+        // Load the widths from localStorage - commented out
+        /*
+        const leftSideWidth = localStorage.getItem('converge-leftSideWidth');
+        const rightSideWidth = localStorage.getItem('converge-rightSideWidth');
+      
+        if (leftSideWidth && rightSideWidth) {
+          leftSide.style.width = leftSideWidth;
+          rightSide.style.width = rightSideWidth;
+      
+          // send resize event to Babylon
+          window.dispatchEvent(new Event('resize'));
+        }
+        */
+      });
+
+      function handleEnd(e) {
+        isResizing = false;
+        document.body.style.userSelect = ''; // re-enable text selection
+      }
+
+      window.addEventListener('mouseup', handleEnd);
+      window.addEventListener('touchend', handleEnd);
+    } else {
+      document.getElementById("openVidu").remove();
+      document.getElementById("divider").remove();
+      // set canvasContainer width to 100% if openVidu is not used
+      document.getElementById("canvasContainer").style.width = "100%";
+    }
+
+    function rewireLoggingToElement(eleLocator, eleOverflowLocator, autoScroll) {
+      var logMessages = []; // Array to hold log messages
+      var maxLogMessages = 40; // Maximum number of log messages to store
+
+      fixLoggingFunc('log');
+      fixLoggingFunc('debug');
+      fixLoggingFunc('warn');
+      fixLoggingFunc('error');
+      fixLoggingFunc('info');
+
+      function fixLoggingFunc(name) {
+        console['old' + name] = console[name];
+        console[name] = function (...arguments) {
+          const output = produceOutput(name, arguments);
+          const eleLog = eleLocator();
+
+          // Add the new message to the array
+          logMessages.push(output);
+
+          // If the array length exceeds 10, remove the oldest message
+          if (logMessages.length > maxLogMessages) {
+            logMessages.shift();
+          }
+
+          // Update the log element's innerHTML with the messages in the array
+          eleLog.innerHTML = logMessages.join('<br>') + "<br>";
+
+          if (autoScroll) {
+            const eleContainerLog = eleOverflowLocator();
+            const isScrolledToBottom = eleContainerLog.scrollHeight - eleContainerLog.clientHeight <= eleContainerLog.scrollTop + 1;
+            if (isScrolledToBottom) {
+              eleContainerLog.scrollTop = eleContainerLog.scrollHeight - eleContainerLog.clientHeight;
+            }
+          }
+
+          console['old' + name].apply(undefined, arguments);
+        };
+      }
+
+      function produceOutput(name, args) {
+        return args.reduce((output, arg) => {
+          return output +
+            "<span class=\"log-" + (typeof arg) + " log-" + name + "\">" +
+            (typeof arg === "object" && (JSON || {}).stringify ? stringify(arg) : arg) +
+            "</span>&nbsp;";
+        }, '');
+      }
+
+      /* Source: https://codedamn.com/news/javascript/how-to-fix-typeerror-converting-circular-structure-to-json-in-js
+        With this function, you can safely convert objects with circular references to JSON without getting 
+        the “TypeError: Converting circular structure to JSON” error.
+      */
+      function stringify(obj) {
+        return "object";
+        // HACK:FIXME BROKEN DON'T USE BEFORE IT'S FIXED. This still can crash the app (WebXR). "TypeError: Do not know how to serialize a BigInt at JSON.stringify"
+        /*
+        let cache = [];
+        let str = JSON.stringify(obj, function (key, value) {
+          if (typeof value === "object" && value !== null) {
+            if (cache.indexOf(value) !== -1) {
+              // Circular reference found, discard key
+              return;
+            }
+            // Store value in our collection
+            cache.push(value);
+          }
+          return value;
+        });
+        cache = null; // reset the cache
+        return str;
+        */
+      }
+    }
+
+    function getUrlParameter(sParam) {
+      let sPageURL = window.location.search.substring(1),
+        sURLVariables = sPageURL.split('&'),
+        sParameterName,
+        i;
+
+      // Convert the input parameter to lower case
+      let lowerCaseParam = sParam.toLowerCase();
+
+      for (i = 0; i < sURLVariables.length; i++) {
+        sParameterName = sURLVariables[i].split('=');
+
+        // Convert the URL parameter to lower case before comparing
+        if (sParameterName[0].toLowerCase() === lowerCaseParam) {
+          return sParameterName[1] === undefined ? true : decodeURIComponent(sParameterName[1]);
+        }
+      }
+      return false;
+    }
+
+    // setInterval(() => {
+    //   const method = (['log', 'debug', 'warn', 'error', 'info'][Math.floor(Math.random() * 5)]);
+    //   console[method](method, 'logging something...');
+    // }, 200);</script></html>

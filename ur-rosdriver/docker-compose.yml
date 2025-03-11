@@ -1,0 +1,27 @@
+version: "3.8"
+services:
+  ros2_driver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ros2_driver
+    networks:
+      ur_network_macvlan:
+        ipv4_address: 192.168.10.30
+      real-robot_net:
+        ipv4_address: 192.168.1.30
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+    volumes:
+      - "/tmp/.X11-unix:/tmp/.X11-unix:rw"
+    entrypoint: >
+      bash -c "sleep 1 && source /opt/ros/jazzy/setup.bash &&
+      ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur10 robot_ip:=192.168.1.10"
+    tty: true
+
+networks:
+  ur_network_macvlan:
+    external: true
+  real-robot_net:
+    external: true

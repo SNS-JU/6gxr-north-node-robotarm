@@ -1,0 +1,59 @@
+# Use ROS2 Rolling as the base image
+FROM osrf/ros:rolling-desktop
+
+# Install necessary packages including colcon
+RUN apt-get update && apt-get install -y \
+#     git \
+#     python3-colcon-common-extensions \
+#     python3-pip \
+#     build-essential \
+#     nano \
+#     npm \
+#     nodejs \
+    ros-rolling-ros2-control \
+    ros-rolling-ros2-controllers
+#     && rm -rf /var/lib/apt/lists/*
+
+# Install dependencies for ROSBridge
+RUN apt-get update && apt-get install -y \
+    python3-pymongo \
+    python3-tornado \
+    && rm -rf /var/lib/apt/lists/*
+
+# RUN apt-get update && apt-get install -y \
+#     ros-rolling-ament-cmake-mypy \
+#     && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update && apt-get install -y ros-rolling-rosbridge-server && rm -rf /var/lib/apt/lists/*
+# RUN npm install -g webpack-dev-server
+
+# Create ROS 2 workspace
+RUN mkdir -p /home/rosuser/ws/src
+
+# Set the working directory to the ROS 2 workspace
+WORKDIR /home/rosuser/ws
+
+# Create the ROS user with sudo permissions
+RUN useradd -ms /bin/bash rosuser && echo "rosuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Adjust permissions for the log directory
+RUN mkdir -p /home/rosuser/.ros/log && chown -R rosuser:rosuser /home/rosuser/.ros
+
+# Change ownership of the workspace and home directory to rosuser
+RUN chown -R rosuser:rosuser /home/rosuser/ws /home/rosuser
+
+# Switch to rosuser
+USER rosuser
+
+# Clone the ROSBridge source - Not needed as we install from apt
+# RUN git clone https://github.com/RobotWebTools/rosbridge_suite.git src/rosbridge_suite
+
+# Build the workspace - Not needed as we use pre-built packages
+# RUN bash -c "source /opt/ros/rolling/setup.bash && colcon build --symlink-install"
+
+# Source the built workspace in bashrc
+RUN echo "source /home/rosuser/ws/install/setup.bash" >> /home/rosuser/.bashrc
+
+# Default command is to start bash
+CMD ["ros2", "run", "rosbridge_server", "rosbridge_websocket"]
+

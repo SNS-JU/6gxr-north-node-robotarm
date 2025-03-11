@@ -1,0 +1,52 @@
+
+networks:
+  ur_network_macvlan:
+    external: true
+  ur_network:
+    external: true
+
+
+services:
+  rosbridge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rosbridge_babylon
+    networks:
+      ur_network:
+        ipv4_address: 172.18.0.40
+      ur_network_macvlan:
+        ipv4_address: 192.168.10.40
+    environment:
+      DISPLAY: "${DISPLAY}"
+      QT_X11_NO_MITSHM: "1"
+    volumes:
+      # Mount the X11 Unix socket for GUI applications
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      # Mount the SSL certificates directory
+      - "./sslfile:/home/rosuser/sslfile"
+      # Mount the ROS workspace directory
+      - "./ws:/home/rosuser/ws"
+    ports:
+      - "9090:9090"
+    privileged: true
+    user: "1001:1001"  # UID:GID for rosuser
+    stdin_open: true
+    tty: true
+    command: bash -c "source /opt/ros/rolling/setup.bash && \
+                      ros2 run rosbridge_server rosbridge_websocket --ros-args -p certfile:=/home/rosuser/sslfile/cert.pem -p keyfile:=/home/rosuser/sslfile/key.pem"
+
+  babylon:
+    image: nginx:alpine
+    container_name: babylon_web_server
+    networks:
+      ur_network_macvlan:
+        ipv4_address: 192.168.10.50
+      ur_network:
+        ipv4_address: 172.18.0.50
+    volumes:
+      - "../dist:/usr/share/nginx/html:ro"
+      - "./sslfile:/etc/nginx/ssl:ro"
+      - "./nginx.conf:/etc/nginx/conf.d/default.conf:ro"
+    ports:
+      - "8085:8085"

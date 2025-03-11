@@ -1,0 +1,22 @@
+networks:
+  ur_network:
+    external: true
+
+services:
+  ursim:
+    image: universalrobots/ursim_cb3:latest
+    container_name: ursim
+#    network_mode: host
+    networks:
+      ur_network:
+        ipv4_address: 172.18.0.80
+    environment:
+      - ROBOT_MODEL=UR10
+    volumes:
+      - "./ursim/urcaps:/urcaps"
+      - "./ursim/programs:/ursim/programs"
+    ports:
+      - "6080:6080"
+      - "30004:30004"
+      - "50002:50002"
+    tty: true
